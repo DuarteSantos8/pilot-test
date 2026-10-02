@@ -95,7 +95,7 @@ const CORNERS = { tl: [-1, 1], tr: [1, 1], bl: [-1, -1], br: [1, -1] };
 function makeCornerTrial(settings) {
   const view = pick(VIEWS.filter(view => view.id === 'front' || view.id === 'back'));
   const roll = settings.cornerFlip ? pick([0, 180]) : 0;
-  const corner = pick(settings.corners === 'any' ? Object.keys(CORNERS) : ['tl', 'tr']);
+  const corner = pick(Object.keys(CORNERS));
   const viewDir = view.dir.clone();
   const up = view.up.clone().applyAxisAngle(viewDir, THREE.MathUtils.degToRad(roll));
 

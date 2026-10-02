@@ -6,7 +6,7 @@
 A spatial orientation test for pilot candidates. It runs in the browser.
 
 An aircraft appears in a corner of the screen, seen from the front or the back and sometimes upside down.
-It flies along a dashed line to the opposite corner and reaches the arrow tip when the time is up (5 seconds by default).
+It starts in any of the four corners, flies along a dashed line to the opposite corner, and reaches the arrow tip when the time is up (5 seconds by default).
 Before then, the candidate presses the two keys that would fly it along that line, as the pilot sitting inside would.
 For example W + A for nose down and left.
 
@@ -27,7 +27,7 @@ Every answer is timed and recorded.
 ![Four corner trials: front and back views, upright and upside down](docs/corner.png)
 
 1. A crosshair shows for a moment so every trial starts the same way.
-2. The aircraft appears in a corner, seen from the **front or the back**, upright or **upside down**.
+2. The aircraft appears in one of the four corners, seen from the **front or the back**, upright or **upside down**.
    A dashed line runs to the opposite corner, and the aircraft flies along it, reaching the arrow tip as the time runs out.
 3. The candidate presses **one up/down key and one left/right key together**. The answer and the reaction time are recorded.
 
@@ -37,7 +37,7 @@ Upside down, its "up" is your "down". A line going down and left on screen can m
 Letting go of a single key before pressing the second one counts as an answer, and it is wrong.
 So is pressing W + S or A + D. On touch screens, tap the two keys one after the other.
 
-Options: start only from the top corners (the line always goes down), or from any corner. Upside-down pictures can be turned off.
+The line can go up or down, left or right. Upside-down pictures can be turned off in the settings.
 
 ### Arrow, one key
 

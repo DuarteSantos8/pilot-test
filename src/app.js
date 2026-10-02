@@ -12,7 +12,7 @@ const store = {
 };
 
 const DEFAULTS = {
-  candidate: '', mode: 'corner', corners: 'top', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
+  candidate: '', mode: 'corner', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
   trials: 20, limit: 5, feedback: true, sound: false, invertPitch: false,
 };
 const KEYS = { w: 'w', a: 'a', s: 's', d: 'd', arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
@@ -122,7 +122,6 @@ function keypadHTML(invert) {
 
 function writeForm() {
   form.candidate.value = settings.candidate;
-  form.corners.value = settings.corners;
   form.cornerFlip.checked = settings.cornerFlip;
   form.roll.value = settings.roll;
   form.oblique.checked = settings.oblique;
@@ -139,7 +138,6 @@ function readForm() {
   settings = {
     ...settings,
     candidate: form.candidate.value.trim(),
-    corners: form.corners.value,
     cornerFlip: form.cornerFlip.checked,
     views: $$('#viewChips input:checked').map(i => i.value),
     roll: form.roll.value,
