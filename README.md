@@ -5,12 +5,13 @@
 
 A spatial orientation test for pilot candidates. It runs in the browser.
 
-An aircraft appears from a random side (above, below, front, back, either side), sometimes upside down or at an angle.
-A yellow arrow leaves its nose. The candidate steers the way the arrow points, as the pilot sitting inside would, using W A S D as a stick.
+An aircraft appears in a corner of the screen, seen from the front or the back and sometimes upside down.
+A dashed line runs diagonally to the opposite corner. The candidate presses the two keys that would fly it along that line,
+as the pilot sitting inside would. For example W + A for nose down and left.
 
 **[Try it online](https://duartesantos8.github.io/pilot-test/)**
 
-![A candidate running through a ten-trial test](docs/demo.gif)
+![A candidate running through a ten-trial corner test](docs/demo.gif)
 
 ## Why
 
@@ -18,19 +19,37 @@ Aircrew selection tests check whether someone can tell how an aircraft is orient
 and can work out which control input it needs. This project does that one task with a keyboard instead of a joystick.
 Every answer is timed and recorded.
 
-## A trial
+## Two test types
 
-![Three trials: seen from below, from the side at an angle, and from above](docs/trials.png)
+### Corner, two keys (default)
+
+![Four corner trials: front and back views, upright and upside down](docs/corner.png)
 
 1. A crosshair shows for a moment so every trial starts the same way.
-2. The aircraft appears with the arrow. The timer bar starts shrinking.
-3. The candidate presses a key. The answer and the reaction time are recorded.
+2. The aircraft appears in a corner, seen from the **front or the back**, upright or **upside down**.
+   A dashed line runs to the opposite corner.
+3. The candidate presses **one up/down key and one left/right key together**. The answer and the reaction time are recorded.
 
-How to read the picture:
+The trick is that the screen and the aircraft disagree. Seen from the front, the aircraft's left is on your right.
+Upside down, its "up" is your "down". A line going down and left on screen can mean nose up and right for the pilot.
+
+Letting go of a single key before pressing the second one counts as an answer, and it is wrong.
+So is pressing W + S or A + D. On touch screens, tap the two keys one after the other.
+
+Options: start only from the top corners (the line always goes down), or from any corner. Upside-down pictures can be turned off.
+
+### Arrow, one key
+
+![Three arrow trials: seen from below, from the side at an angle, and from above](docs/trials.png)
+
+The aircraft appears from any of the six sides, rotated, with a curved yellow arrow leaving its nose. The candidate presses the one key for that direction.
+This type has its own difficulty levels (see below).
+
+### Reading the aircraft
 
 - The **canopy** is on top. **Top surfaces are light** and the **belly is dark**.
 - **Red** light on the **left** wingtip, **green** on the **right**, like real navigation lights.
-- The arrow is always drawn relative to the aircraft, not the screen. If you see the aircraft from the front, its left is on your right.
+- Directions are always relative to the aircraft, not the screen.
 
 ## Controls
 
@@ -44,7 +63,7 @@ How to read the picture:
 <kbd>Esc</kbd> stops the test. On a touch screen, tap the keys shown at the bottom of the screen.
 Pitch can be inverted in the settings for people who think "W = up".
 
-## Difficulty
+## Difficulty (arrow test)
 
 | Level | Sides shown | Picture |
 | --- | --- | --- |
@@ -74,8 +93,8 @@ Settings are remembered in the browser.
 
 - Accuracy, median reaction time (correct answers only) and the number of slow answers.
 - One bar per trial: height is reaction time, colour is right, wrong or too slow.
-- Breakdown by side shown and by arrow direction, which shows where a candidate struggles.
-- **Download CSV** gives one row per trial (`candidate, difficulty, trial, side, picture_rotation_deg, arrow, response, correct, reaction_ms`), ready for a spreadsheet.
+- Breakdown by side shown (and upright or upside down in the corner test) and by direction, which shows where a candidate struggles.
+- **Download CSV** gives one row per trial (`candidate, test, trial, side, picture_rotation_deg, corner, answer, response, correct, reaction_ms`), ready for a spreadsheet.
 - The last sessions are listed under *Previous sessions*. This list is stored in the browser only, never sent anywhere.
 
 ## Run it locally
@@ -103,6 +122,7 @@ src/style.css     all styling
 ```
 
 - The aircraft has its own axes: nose `+Z`, top `+Y`, pilot's left `+X`. Each answer is one of these directions: left `+X`, right `−X`, nose up `+Y`, nose down `−Y`.
+- Corner test: the line's screen direction is converted into the aircraft's axes. Its left/right part becomes A or D, and its up/down part becomes W or S.
 - A trial picks a camera direction (one of the six sides, nudged at random in Advanced) and a rotation of the picture around that direction.
 - A trial is thrown away if the arrow points within 60° of straight at the camera or straight away from it, where it would be hard to read.
 - The arrow is drawn on top of everything with a dark outline, so it stays readable against both the sky and the aircraft.

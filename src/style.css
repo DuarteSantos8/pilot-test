@@ -146,6 +146,10 @@ output { font: 600 20px/1 var(--display); float: right; }
 .timer { position: absolute; top: 44px; left: 24px; right: 24px; height: 3px; z-index: 2; }
 .timer div { height: 100%; width: 100%; background: #22323d; transform-origin: left; }
 
+.guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.key-hint { margin: 8px 0 0; font-size: 14px; color: #22323d; }
+.cap.held { background: var(--ink) !important; color: var(--paper); }
+
 .crosshair { position: absolute; left: 50%; top: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); }
 .crosshair::before, .crosshair::after { content: ""; position: absolute; background: #22323d; }
 .crosshair::before { left: 14px; top: 0; width: 2px; height: 30px; }

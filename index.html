@@ -46,7 +46,10 @@
   <form class="briefing" id="settings" novalidate>
     <section>
       <h2>How it works</h2>
-      <p>The aircraft appears from a random side with a yellow arrow leaving its nose.
+      <p data-mode-text="corner">The aircraft appears in a corner of the screen, seen from the front or the back,
+        sometimes upside down. A dashed line runs to the opposite corner. Press the two keys that fly it along the line,
+        as the pilot sitting inside would. For example W and A together for nose down and left.</p>
+      <p data-mode-text="arrow">The aircraft appears from a random side with a yellow arrow leaving its nose.
         Steer the way the arrow points, as the pilot sitting inside would.</p>
       <div class="keypad" data-keypad></div>
       <p class="cue">Canopy on top, dark belly underneath. Red light on the left wingtip, green on the right.
@@ -60,6 +63,27 @@
         <input type="text" name="candidate" placeholder="Name or service number" autocomplete="off">
       </label>
 
+      <fieldset class="field">
+        <legend>Test type</legend>
+        <div class="segmented" id="modes">
+          <button type="button" data-mode="corner">Corner, two keys</button>
+          <button type="button" data-mode="arrow">Arrow, one key</button>
+        </div>
+        <p class="hint" id="modeAbout"></p>
+      </fieldset>
+
+      <div id="cornerOptions">
+        <label class="field">
+          <span>Aircraft starts in</span>
+          <select name="corners">
+            <option value="top">A top corner, line goes down</option>
+            <option value="any">Any corner</option>
+          </select>
+        </label>
+        <label class="switch">Picture can be upside down <input type="checkbox" name="cornerFlip"></label>
+      </div>
+
+      <div id="arrowOptions">
       <fieldset class="field">
         <legend>Difficulty</legend>
         <div class="segmented" id="presets">
@@ -85,6 +109,7 @@
           </select>
         </label>
         <label class="switch">Angled views between the sides <input type="checkbox" name="oblique"></label>
+      </div>
       </div>
 
       <div class="field-row">
@@ -115,6 +140,7 @@
 <!-- ============ Test ============ -->
 <div id="test" class="test" hidden>
   <canvas id="sky"></canvas>
+  <svg class="guide" id="guide" aria-hidden="true"></svg>
   <div class="test-bar">
     <strong id="testTitle"></strong>
     <ol class="progress" id="progress" aria-label="Progress"></ol>
@@ -125,6 +151,7 @@
   <div class="test-keys">
     <p class="verdict" id="verdict" aria-live="polite"></p>
     <div class="keypad" data-keypad></div>
+    <p class="key-hint" id="keyHint">Press two keys together</p>
   </div>
 </div>
 
@@ -154,7 +181,7 @@
     </div>
     <div>
       <table><thead><tr><th>Side shown</th><th class="num">Right</th><th class="num">Median</th></tr></thead><tbody id="byView"></tbody></table>
-      <table><thead><tr><th>Arrow</th><th class="num">Right</th><th class="num">Median</th></tr></thead><tbody id="byDirection"></tbody></table>
+      <table><thead><tr><th>Direction</th><th class="num">Right</th><th class="num">Median</th></tr></thead><tbody id="byDirection"></tbody></table>
       <h2>Previous sessions</h2>
       <table><thead><tr><th>Date</th><th>Candidate</th><th class="num">Right</th><th class="num">Median</th></tr></thead><tbody id="history"></tbody></table>
       <button type="button" class="btn btn-quiet" id="clearHistory">Clear history</button>

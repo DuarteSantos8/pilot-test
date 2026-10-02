@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildAircraft, buildArrow, disposeGroup } from './aircraft.js';
-import { VIEWS, DIRECTIONS, PRESETS, keyFor, directionFor, makeTrials, summarize } from './trials.js';
+import { VIEWS, DIRECTIONS, PRESETS, MODES, keyFor, keysFor, answerName, directionFor, makeTrials, summarize } from './trials.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
@@ -12,7 +12,7 @@ const store = {
 };
 
 const DEFAULTS = {
-  candidate: '', preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
+  candidate: '', mode: 'corner', corners: 'top', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
   trials: 20, limit: 4, feedback: true, sound: false, invertPitch: false,
 };
 const KEYS = { w: 'w', a: 'a', s: 's', d: 'd', arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
@@ -122,6 +122,8 @@ function keypadHTML(invert) {
 
 function writeForm() {
   form.candidate.value = settings.candidate;
+  form.corners.value = settings.corners;
+  form.cornerFlip.checked = settings.cornerFlip;
   form.roll.value = settings.roll;
   form.oblique.checked = settings.oblique;
   form.trials.value = settings.trials;
@@ -137,6 +139,8 @@ function readForm() {
   settings = {
     ...settings,
     candidate: form.candidate.value.trim(),
+    corners: form.corners.value,
+    cornerFlip: form.cornerFlip.checked,
     views: $$('#viewChips input:checked').map(i => i.value),
     roll: form.roll.value,
     oblique: form.oblique.checked,
@@ -150,6 +154,11 @@ function readForm() {
 }
 
 function refreshForm() {
+  $$('#modes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === settings.mode));
+  $('#modeAbout').textContent = MODES[settings.mode];
+  $('#cornerOptions').hidden = settings.mode !== 'corner';
+  $('#arrowOptions').hidden = settings.mode !== 'arrow';
+  $$('[data-mode-text]').forEach(p => { p.hidden = p.dataset.modeText !== settings.mode; });
   $$('#presets button').forEach(b => b.setAttribute('aria-pressed', b.dataset.preset === settings.preset));
   $('#presetAbout').textContent = PRESETS[settings.preset].about;
   $('#custom').hidden = settings.preset !== 'custom';
@@ -165,6 +174,13 @@ function applyPreset(name) {
   readForm();
 }
 
+$('#modes').addEventListener('click', e => {
+  const mode = e.target.dataset?.mode;
+  if (!mode) return;
+  settings.mode = mode;
+  store.set('attitude.settings', settings);
+  refreshForm();
+});
 $('#presets').addEventListener('click', e => {
   const name = e.target.dataset?.preset;
   if (name) applyPreset(name);
@@ -207,14 +223,64 @@ function fitSky() {
   skyCam.setViewOffset(w, h + 2 * lift, 0, 2 * lift, w, h);
 }
 
+function renderTrial(trial, mode) {
+  if (mode === 'corner') return renderCornerTrial(trial);
+  drawGuide(null);
+  fitSky();
+  setArrow(trial.dirVec);
+  const target = new THREE.Vector3(0, 0, 2.2).addScaledVector(trial.dirVec, 1.5);
+  aim(skyCam, target, trial.viewDir, trial.up, 38 * Math.max(1, 0.8 / skyCam.aspect));
+  sky.render(scene, skyCam);
+}
+
+// Corner test: the aircraft is drawn small in one corner and a dashed line runs to the opposite corner.
+function renderCornerTrial(trial) {
+  const w = innerWidth, h = innerHeight;
+  const mx = Math.min(w * 0.2, 280), top = Math.min(h * 0.22, 190), bottom = h - Math.min(h * 0.3, 250);
+  const spots = { tl: [mx, top], tr: [w - mx, top], bl: [mx, bottom], br: [w - mx, bottom] };
+  const opposite = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' };
+  const [px, py] = spots[trial.corner];
+  const [ex, ey] = spots[opposite[trial.corner]];
+  const span = THREE.MathUtils.clamp(Math.min(w, h) * 0.36, 140, 380);   // wingspan on screen, px
+
+  // Shift the camera's centre onto (px, py) with a view offset inside a larger virtual frame.
+  const a = Math.abs(px - w / 2), b = Math.abs(py - h / 2);
+  const fw = w + 2 * a, fh = h + 2 * b;
+  sky.setSize(w, h, false);
+  skyCam.aspect = fw / fh;
+  skyCam.setViewOffset(fw, fh, w / 2 + a - px, h / 2 + b - py, w, h);
+  const distance = (10.5 * fh / span) / (2 * Math.tan(THREE.MathUtils.degToRad(skyCam.fov / 2)));
+  setArrow(null);
+  aim(skyCam, new THREE.Vector3(0, 0.3, 0), trial.viewDir, trial.up, distance);
+  sky.render(scene, skyCam);
+
+  // Start the line just outside the aircraft so it doesn't cross it.
+  const len = Math.hypot(ex - px, ey - py), ux = (ex - px) / len, uy = (ey - py) / len;
+  drawGuide({ x: px + ux * span * 0.55, y: py + uy * span * 0.55 }, { x: ex, y: ey });
+}
+
+function drawGuide(from, to) {
+  const g = $('#guide');
+  if (!from) { g.innerHTML = ''; return; }
+  g.setAttribute('viewBox', `0 0 ${innerWidth} ${innerHeight}`);
+  const len = Math.hypot(to.x - from.x, to.y - from.y);
+  const ux = (to.x - from.x) / len, uy = (to.y - from.y) / len;
+  const base = { x: to.x - ux * 26, y: to.y - uy * 26 };
+  const head = [[to.x, to.y], [base.x - uy * 14, base.y + ux * 14], [base.x + uy * 14, base.y - ux * 14]].join(' ');
+  const line = (color, width) => `<line x1="${from.x}" y1="${from.y}" x2="${base.x}" y2="${base.y}"
+    stroke="${color}" stroke-width="${width}" stroke-dasharray="22 16" stroke-linecap="round"/>`;
+  g.innerHTML = line('#2a2100', 9) + line('#ffc21a', 5) +
+    `<polygon points="${head}" fill="#ffc21a" stroke="#2a2100" stroke-width="2.5" stroke-linejoin="round"/>`;
+}
+
 function show(id) {
   for (const s of ['setup', 'test', 'results']) $('#' + s).hidden = s !== id;
-  if (id === 'setup') { setArrow(null); requestAnimationFrame(heroFrame); }
+  if (id === 'setup') { setArrow(null); drawGuide(null); requestAnimationFrame(heroFrame); }
 }
 
 function startSession(practice) {
   readForm();
-  if (!settings.views.length) {
+  if (settings.mode === 'arrow' && !settings.views.length) {
     $('#formError').textContent = 'Pick at least one side to show.';
     $('#formError').hidden = false;
     return;
@@ -223,6 +289,7 @@ function startSession(practice) {
   const count = practice ? 5 : s.trials;
   session = { practice, settings: s, trials: makeTrials(s, count), results: [], index: -1 };
   $('#testTitle').textContent = practice ? 'Practice' : (s.candidate || 'Test');
+  $('#keyHint').hidden = s.mode !== 'corner';
   $('#progress').innerHTML = '<li></li>'.repeat(count);
   $('#practiceNote').hidden = true;
   show('test');
@@ -237,20 +304,17 @@ function nextTrial() {
 
   $$('#progress li')[session.index].className = 'now';
   $('#verdict').textContent = '';
+  held.clear();
   $$('.test-keys .cap').forEach(c => { c.className = 'cap'; });
   $('#sky').style.visibility = 'hidden';
+  drawGuide(null);
   $('#crosshair').hidden = false;
   $('#timer').style.transform = 'scaleX(1)';
 
   setTimeout(() => {
     if (!session) return;
-    const trial = trials[session.index];
     $('#crosshair').hidden = true;
-    fitSky();
-    setArrow(trial.dirVec);
-    const target = new THREE.Vector3(0, 0, 2.2).addScaledVector(trial.dirVec, 1.5);
-    aim(skyCam, target, trial.viewDir, trial.up, 38 * Math.max(1, 0.8 / skyCam.aspect));
-    sky.render(scene, skyCam);
+    renderTrial(trials[session.index], s.mode);
     $('#sky').style.visibility = 'visible';
 
     pending = { start: performance.now() };
@@ -271,20 +335,28 @@ function answer(response) {
   cancelAnimationFrame(pending.raf);
   const rt = Math.round(performance.now() - pending.start);
   pending = null;
+  held.clear();
 
   const { settings: s, trials, index } = session;
   const trial = trials[index];
   const correct = response === trial.dir;
-  session.results.push({ trial: index + 1, view: trial.view, roll: trial.roll, expected: trial.dir, response, correct, rt });
+  session.results.push({ trial: index + 1, view: trial.view, roll: trial.roll, corner: trial.corner ?? '',
+    expected: trial.dir, response, correct, rt });
 
   const tick = $$('#progress li')[index];
   if (s.feedback) {
     tick.className = correct ? 'right' : 'wrong';
-    const expectedKey = keyFor(trial.dir, s.invertPitch);
-    if (response) $(`.test-keys .cap[data-key="${keyFor(response, s.invertPitch)}"]`).classList.add(correct ? 'hit-right' : 'hit-wrong');
-    if (!correct) $(`.test-keys .cap[data-key="${expectedKey}"]`).classList.add('expected');
-    const name = DIRECTIONS.find(d => d.id === trial.dir).name.toLowerCase();
-    $('#verdict').textContent = correct ? `${rt} ms` : `${response ? 'Wrong' : 'Too slow'}, it was ${name}`;
+    const cap = key => $(`.test-keys .cap[data-key="${key}"]`);
+    const expectedKeys = keysFor(trial.dir, s.invertPitch);
+    $$('.test-keys .cap').forEach(c => c.classList.remove('held'));
+    if (!correct) expectedKeys.forEach(k => cap(k).classList.add('expected'));
+    for (const k of response ? keysFor(response, s.invertPitch) : []) {
+      if (correct) cap(k).classList.add('hit-right');
+      else if (!expectedKeys.includes(k)) cap(k).classList.add('hit-wrong');
+    }
+    const keys = expectedKeys.map(k => k.toUpperCase()).join(' + ');
+    $('#verdict').textContent = correct ? `${rt} ms`
+      : `${response ? 'Wrong' : 'Too slow'}, it was ${answerName(trial.dir).toLowerCase()} (${keys})`;
     beep(correct ? 880 : 200, correct ? 90 : 220);
   } else {
     tick.className = 'done';
@@ -299,24 +371,50 @@ function stopSession() {
   show('setup');
 }
 
+// Answer keys currently held (keyboard) or tapped (touch). The arrow test answers on the first key;
+// the corner test waits for one up/down key plus one left/right key.
+const held = new Set();
+
+function press(key) {
+  if (!pending) return;
+  const s = session.settings;
+  const dir = directionFor(key, s.invertPitch);
+  if (s.mode !== 'corner') return answer(dir);
+
+  held.add(dir);
+  $(`.test-keys .cap[data-key="${key}"]`).classList.add('held');
+  const vertical = [...held].filter(d => d === 'up' || d === 'down');
+  const horizontal = [...held].filter(d => d === 'left' || d === 'right');
+  if (vertical.length > 1 || horizontal.length > 1) answer([...held].join('+'));   // W+S or A+D
+  else if (vertical.length && horizontal.length) answer(`${vertical[0]}-${horizontal[0]}`);
+}
+
+// Letting go of a lone key before pressing its partner counts as that single answer.
+function release(key) {
+  const dir = directionFor(key, session?.settings.invertPitch);
+  if (pending && session.settings.mode === 'corner' && held.size === 1 && held.has(dir)) answer(dir);
+}
+
 addEventListener('keydown', e => {
   if ($('#test').hidden) return;
   if (e.key === 'Escape') return stopSession();
   const key = KEYS[e.key.toLowerCase()];
-  if (key && pending) {
-    e.preventDefault();
-    answer(directionFor(key, session.settings.invertPitch));
-  }
+  if (!key) return;
+  e.preventDefault();
+  if (!e.repeat) press(key);
 });
-// Touch screens: the keycaps on the test screen can be tapped.
+addEventListener('keyup', e => {
+  const key = KEYS[e.key.toLowerCase()];
+  if (key && !$('#test').hidden) release(key);
+});
+// Touch screens: the keycaps on the test screen can be tapped (two taps for the corner test).
 $('.test-keys').addEventListener('pointerdown', e => {
   const key = e.target.closest('.cap')?.dataset.key;
-  if (key && pending) answer(directionFor(key, session.settings.invertPitch));
+  if (key) press(key);
 });
 addEventListener('resize', () => {
   if (!pending) return;
-  fitSky();
-  sky.render(scene, skyCam);
+  renderTrial(session.trials[session.index], session.settings.mode);
 });
 
 // ---------- Results ----------
@@ -324,7 +422,7 @@ const fmtMs = ms => ms == null ? '–' : `${(ms / 1000).toFixed(2)} s`;
 
 function finish() {
   const { practice, results, settings: s } = session;
-  const sum = summarize(results);
+  const sum = summarize(results, s.mode);
   if (practice) {
     session = null;
     show('setup');
@@ -334,11 +432,11 @@ function finish() {
   }
 
   const history = store.get('attitude.history', []);
-  history.unshift({ date: new Date().toISOString(), candidate: s.candidate || 'Unnamed', preset: s.preset,
+  history.unshift({ date: new Date().toISOString(), candidate: s.candidate || 'Unnamed', mode: s.mode, preset: s.preset,
     correct: sum.correct, total: sum.total, medianRt: sum.medianRt });
   store.set('attitude.history', history.slice(0, 50));
 
-  $('#resultsTitle').textContent = `${s.candidate || 'Unnamed candidate'}, ${s.preset} difficulty`;
+  $('#resultsTitle').textContent = `${s.candidate || 'Unnamed candidate'}, ${s.mode === 'corner' ? 'corner test' : `${s.preset} difficulty`}`;
   $('#accuracy').textContent = `${Math.round(sum.accuracy * 100)}%`;
   $('#medianRt').textContent = fmtMs(sum.medianRt);
   $('#timeouts').textContent = sum.timeouts;
@@ -378,9 +476,10 @@ const escapeHTML = s => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
 function downloadCsv() {
   const s = session.settings;
-  const head = 'candidate,difficulty,trial,side,picture_rotation_deg,arrow,response,correct,reaction_ms';
+  const head = 'candidate,test,trial,side,picture_rotation_deg,corner,answer,response,correct,reaction_ms';
+  const test = s.mode === 'corner' ? 'corner' : s.preset;
   const lines = session.results.map(r =>
-    [JSON.stringify(s.candidate), s.preset, r.trial, r.view, r.roll, r.expected, r.response ?? 'timeout', r.correct, r.rt].join(','));
+    [JSON.stringify(s.candidate), test, r.trial, r.view, r.roll, r.corner, r.expected, r.response ?? 'timeout', r.correct, r.rt].join(','));
   const url = URL.createObjectURL(new Blob([[head, ...lines].join('\n')], { type: 'text/csv' }));
   const a = Object.assign(document.createElement('a'), {
     href: url, download: `attitude_${(s.candidate || 'candidate').replace(/\W+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`,
@@ -407,6 +506,6 @@ if (new URLSearchParams(location.search).has('demo')) {
     get trial() { return session?.trials[session.index]; },
     get waiting() { return pending !== null; },
     get settings() { return session?.settings; },
-    keyFor,
+    get answerKeys() { return session && keysFor(session.trials[session.index].dir, session.settings.invertPitch); },
   };
 }
