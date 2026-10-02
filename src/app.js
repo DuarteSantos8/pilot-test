@@ -13,7 +13,7 @@ const store = {
 
 const DEFAULTS = {
   candidate: '', mode: 'corner', corners: 'top', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
-  trials: 20, limit: 4, feedback: true, sound: false, invertPitch: false,
+  trials: 20, limit: 5, feedback: true, sound: false, invertPitch: false,
 };
 const KEYS = { w: 'w', a: 'a', s: 's', d: 'd', arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -223,8 +223,9 @@ function fitSky() {
   skyCam.setViewOffset(w, h + 2 * lift, 0, 2 * lift, w, h);
 }
 
-function renderTrial(trial, mode) {
-  if (mode === 'corner') return renderCornerTrial(trial);
+// `progress` (0..1) is how much of the time limit has passed; the corner test uses it to move the aircraft.
+function renderTrial(trial, mode, progress = 0) {
+  if (mode === 'corner') return renderCornerTrial(trial, progress);
   drawGuide(null);
   fitSky();
   setArrow(trial.dirVec);
@@ -233,14 +234,16 @@ function renderTrial(trial, mode) {
   sky.render(scene, skyCam);
 }
 
-// Corner test: the aircraft is drawn small in one corner and a dashed line runs to the opposite corner.
-function renderCornerTrial(trial) {
+// Corner test: the aircraft starts in one corner and flies along a dashed line to the opposite corner,
+// arriving at the arrow tip exactly when the time runs out.
+function renderCornerTrial(trial, progress) {
   const w = innerWidth, h = innerHeight;
   const mx = Math.min(w * 0.2, 280), top = Math.min(h * 0.22, 190), bottom = h - Math.min(h * 0.3, 250);
   const spots = { tl: [mx, top], tr: [w - mx, top], bl: [mx, bottom], br: [w - mx, bottom] };
   const opposite = { tl: 'br', tr: 'bl', bl: 'tr', br: 'tl' };
-  const [px, py] = spots[trial.corner];
+  const [sx, sy] = spots[trial.corner];
   const [ex, ey] = spots[opposite[trial.corner]];
+  const px = sx + (ex - sx) * progress, py = sy + (ey - sy) * progress;
   const span = THREE.MathUtils.clamp(Math.min(w, h) * 0.36, 140, 380);   // wingspan on screen, px
 
   // Shift the camera's centre onto (px, py) with a view offset inside a larger virtual frame.
@@ -254,9 +257,12 @@ function renderCornerTrial(trial) {
   aim(skyCam, new THREE.Vector3(0, 0.3, 0), trial.viewDir, trial.up, distance);
   sky.render(scene, skyCam);
 
-  // Start the line just outside the aircraft so it doesn't cross it.
-  const len = Math.hypot(ex - px, ey - py), ux = (ex - px) / len, uy = (ey - py) / len;
-  drawGuide({ x: px + ux * span * 0.55, y: py + uy * span * 0.55 }, { x: ex, y: ey });
+  // The line shows the path still ahead, starting just outside the aircraft.
+  const len = Math.hypot(ex - sx, ey - sy), ux = (ex - sx) / len, uy = (ey - sy) / len;
+  const remaining = Math.hypot(ex - px, ey - py) - span * 0.55;
+  const from = remaining > 40 ? { x: px + ux * span * 0.55, y: py + uy * span * 0.55 }
+                              : { x: ex - ux * 27, y: ey - uy * 27 };   // only the arrowhead is left
+  drawGuide(from, { x: ex, y: ey });
 }
 
 function drawGuide(from, to) {
@@ -319,10 +325,12 @@ function nextTrial() {
 
     pending = { start: performance.now() };
     pending.timeout = setTimeout(() => answer(null), s.limit * 1000);
+    const trial = trials[session.index];
     const tick = () => {
       if (!pending) return;
-      const left = 1 - (performance.now() - pending.start) / (s.limit * 1000);
-      $('#timer').style.transform = `scaleX(${Math.max(0, left)})`;
+      const done = Math.min(1, (performance.now() - pending.start) / (s.limit * 1000));
+      $('#timer').style.transform = `scaleX(${1 - done})`;
+      if (s.mode === 'corner') renderCornerTrial(trial, done);
       pending.raf = requestAnimationFrame(tick);
     };
     tick();
@@ -414,7 +422,8 @@ $('.test-keys').addEventListener('pointerdown', e => {
 });
 addEventListener('resize', () => {
   if (!pending) return;
-  renderTrial(session.trials[session.index], session.settings.mode);
+  const done = Math.min(1, (performance.now() - pending.start) / (session.settings.limit * 1000));
+  renderTrial(session.trials[session.index], session.settings.mode, done);
 });
 
 // ---------- Results ----------

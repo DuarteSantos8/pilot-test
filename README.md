@@ -6,8 +6,9 @@
 A spatial orientation test for pilot candidates. It runs in the browser.
 
 An aircraft appears in a corner of the screen, seen from the front or the back and sometimes upside down.
-A dashed line runs diagonally to the opposite corner. The candidate presses the two keys that would fly it along that line,
-as the pilot sitting inside would. For example W + A for nose down and left.
+It flies along a dashed line to the opposite corner and reaches the arrow tip when the time is up (5 seconds by default).
+Before then, the candidate presses the two keys that would fly it along that line, as the pilot sitting inside would.
+For example W + A for nose down and left.
 
 **[Try it online](https://duartesantos8.github.io/pilot-test/)**
 
@@ -27,7 +28,7 @@ Every answer is timed and recorded.
 
 1. A crosshair shows for a moment so every trial starts the same way.
 2. The aircraft appears in a corner, seen from the **front or the back**, upright or **upside down**.
-   A dashed line runs to the opposite corner.
+   A dashed line runs to the opposite corner, and the aircraft flies along it, reaching the arrow tip as the time runs out.
 3. The candidate presses **one up/down key and one left/right key together**. The answer and the reaction time are recorded.
 
 The trick is that the screen and the aircraft disagree. Seen from the front, the aircraft's left is on your right.
@@ -80,7 +81,8 @@ Each level only shows trials where the arrow is clearly visible. "Nose up" is ne
 
 - **Candidate**: a name or service number, saved with the results.
 - **Trials**: 5 to 60.
-- **Time per trial**: 1 to 10 seconds. If no key is pressed in time, the trial counts as too slow.
+- **Time per trial**: 1 to 10 seconds, 5 by default. In the corner test this is also how long the aircraft takes to reach the arrow tip.
+  If no answer comes in time, the trial counts as too slow.
 - **Show right or wrong**: turn it off for a formal test, so the candidate gets no hints.
 - **Sound**: short tones for right, wrong and recorded.
 - **Practice 5 trials**: a warm-up with feedback that is not saved.
