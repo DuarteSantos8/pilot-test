@@ -10,6 +10,9 @@ import { tests, testById } from '../tests/registry.js';
 import { sessions, profile, exportData, importData } from './store.js';
 import { trialChart, progressChart } from './charts.js';
 
+// The PDF code (and the jsPDF library) only loads when someone asks for a report.
+const report = () => import('./report.js');
+
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 
@@ -87,7 +90,7 @@ function renderDashboard() {
 
   $('#csvButtons').innerHTML = tests.filter(t => all.some(x => x.test.id === t.id)).map(t =>
     `<button type="button" class="btn btn-quiet" data-csv-test="${t.id}">${tests.length > 1 ? `${escapeHTML(t.name)} trials` : 'All trials'} (CSV)</button>`).join('');
-  $('#exportData').hidden = $('#clearData').hidden = !all.length;
+  $('#exportData').hidden = $('#clearData').hidden = $('#progressPdf').hidden = !all.length;
 
   show('dashboard');
   renderProgress(all);   // after showing, so the charts can measure their width
@@ -144,6 +147,19 @@ function note(text) {
   $('#dataNote').hidden = false;
 }
 
+// Runs a report job with the button showing that it's working, and reports failures in the interface.
+async function withBusy(button, job) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Preparing PDF…';
+  try { await job(); }
+  catch (err) { console.error(err); alert('The PDF could not be created. Check your internet connection and try again.'); }
+  finally { button.disabled = false; button.textContent = label; }
+}
+
+$('#progressPdf').addEventListener('click', e => withBusy(e.currentTarget, async () =>
+  (await report()).progressReport(sessions.all().map(withSummary).filter(Boolean), profile.name())));
+
 $('#exportData').addEventListener('click', () =>
   download(`attitude-backup_${today()}.json`, JSON.stringify(exportData(), null, 2), 'application/json'));
 
@@ -191,6 +207,10 @@ function renderSession(session) {
     </table>`).join('');
 
   $('#again').onclick = () => { location.hash = `#/tests/${test.id}?again=${session.id}`; };
+  $('#sessionPdf').onclick = e => withBusy(e.currentTarget, async () => {
+    const others = sessions.forTest(test.id).filter(s => s.id !== session.id).map(withSummary).filter(Boolean);
+    (await report()).sessionReport({ session, test, sum }, others, profile.name());
+  });
   $('#csv').onclick = () => download(`attitude_${test.id}_${session.date.slice(0, 10)}.csv`, sessionsCsv(test, [session]), 'text/csv');
   $('#deleteSession').onclick = () => {
     if (!confirm('Delete this session?')) return;

@@ -31,8 +31,33 @@ Every answer is timed and recorded.
 - **Your name**: saved once and attached to every session.
 - **Your data**: results are stored in this browser only.
   - **Export backup** saves everything as a JSON file, and **Import backup** loads it back on another device or browser (sessions that are already there are skipped).
+  - **Download PDF report** creates a full progress report (see below).
   - **All trials (CSV)** gives one row per trial over all sessions, ready for a spreadsheet.
   - **Delete all results** clears everything.
+
+## PDF reports
+
+![First two pages of a progress report and the first page of a session report](docs/report.png)
+
+Two reports, both made in the browser and downloaded straight away (nothing is uploaded):
+
+- **Progress report**, from the dashboard:
+  - Your name, the period covered and when the report was made.
+  - An overview over every test: sessions, trials, accuracy, median reaction time, time spent answering.
+  - For each test:
+    - Progress charts.
+    - A comparison of the first, latest, best and fastest sessions, the average, and the first three against the last three, with the change in accuracy and speed.
+    - Strengths and weaknesses for each setup.
+    - A table of all sessions.
+  - One detail block per session, with its trial chart and breakdowns.
+- **Session report**, from a session's page:
+  - The headline figures and the trial chart.
+  - How the session compares with your previous, best and average sessions, and where it ranks.
+  - The breakdowns and the settings used.
+  - Every trial in a table.
+
+The PDFs use real text and vector charts in the site's own fonts, so they stay sharp when zoomed and the text can be searched and copied.
+Blocks are never cut between pages, and short tables stay whole. Long tables continue on the next page with their header repeated.
 
 ## Spatial orientation
 
@@ -137,6 +162,8 @@ src/style.css                  all styling
 src/platform/app.js            routing, dashboard, session pages, backup / import / CSV
 src/platform/store.js          sessions and profile in localStorage
 src/platform/charts.js         progress and per-trial charts with hover tooltips
+src/platform/report.js         PDF progress and session reports (jsPDF, loaded only when needed)
+assets/fonts/                  Barlow fonts embedded in the PDFs (SIL Open Font License, see OFL.txt)
 src/tests/registry.js          the list of tests and the contract each test follows
 src/tests/orientation/         the spatial orientation test
   index.js                     settings form, running a test, what it reports to the dashboard
@@ -155,12 +182,12 @@ Pages are addressed in the URL hash: `#/` is the dashboard, `#/tests/orientation
 ## Adding a test
 
 1. Create `src/tests/<id>/index.js`. Its default export describes the test: name, description, how to open and close it,
-   how to summarise a session and which CSV columns it adds. The full list is at the top of `src/tests/registry.js`.
+   how to summarise a session, which CSV columns it adds, and optionally how its settings and trials read in the PDF reports. The full list is at the top of `src/tests/registry.js`.
 2. Add the test's setup and run screens to `index.html` as elements with `data-screen` (see the orientation test's for an example).
 3. When a run is finished, call `platform.finish({ testId, settings, trials })`. Each trial needs at least `trial`, `correct`, `rt` and `response`.
 4. Import it in `src/tests/registry.js` and add it to the `tests` list.
 
-The dashboard, progress charts, session pages, backup and CSV export then work for the new test without further changes.
+The dashboard, progress charts, session pages, PDF reports, backup and CSV export then work for the new test without further changes.
 
 ## Limitations
 

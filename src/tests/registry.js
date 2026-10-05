@@ -11,6 +11,8 @@
 //                                      breakdowns: [{ title, rows: [{ name, n, correct, medianRt }] }] }
 //   describeTrial(trial)          tooltip text for one trial in the results chart
 //   csv                           { columns: [...], row(trial, session) -> [...] }
+//   settingsSummary(settings)     optional, for PDF reports: [[label, value], ...] in plain words
+//   trialColumns(settings)        optional, for PDF reports: [{ title, w, value(trial) -> text }]
 //
 // Each trial a test saves must have at least { trial, correct, rt, response } (response null = too slow).
 // When a run is done the test calls platform.finish({ testId, settings, trials }).

@@ -254,3 +254,4 @@ td.num, th.num { text-align: right; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+.btn:disabled { opacity: .6; cursor: progress; }

@@ -10,7 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="src/style.css">
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "jspdf": "https://cdn.jsdelivr.net/npm/jspdf@4.2.1/+esm"
+} }</script>
 </head>
 <body>
 
@@ -80,6 +83,7 @@
         <h2>Your data</h2>
         <p class="hint">Results are saved in this browser only. Export a backup to keep them or move them to another device.</p>
         <div class="actions">
+          <button type="button" class="btn btn-primary" id="progressPdf">Download PDF report</button>
           <button type="button" class="btn btn-quiet" id="exportData">Export backup</button>
           <label class="btn btn-quiet file-btn">Import backup<input type="file" id="importData" accept="application/json,.json"></label>
           <span id="csvButtons"></span>
@@ -228,6 +232,7 @@
       </div>
       <div class="actions">
         <button type="button" class="btn btn-primary" id="again">Run again</button>
+        <button type="button" class="btn btn-quiet" id="sessionPdf">Download PDF</button>
         <button type="button" class="btn btn-quiet" id="csv">Download CSV</button>
         <button type="button" class="btn btn-quiet danger" id="deleteSession">Delete session</button>
       </div>

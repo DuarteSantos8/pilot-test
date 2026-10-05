@@ -508,6 +508,31 @@ export default {
     return `<b>Trial ${t.trial}</b><br>${answerName(t.expected)}<br>${(t.rt / 1000).toFixed(2)} s, ${verdict}`;
   },
 
+  settingsSummary(s) {
+    const rows = [['Test type', s.mode === 'corner' ? 'Corner, two keys' : 'Arrow, one key']];
+    if (s.mode === 'corner') rows.push(['Upside-down pictures', s.cornerFlip ? 'Yes' : 'No']);
+    else {
+      rows.push(['Difficulty', s.preset[0].toUpperCase() + s.preset.slice(1)]);
+      rows.push(['Sides shown', VIEWS.filter(v => s.views.includes(v.id)).map(v => v.name).join(', ')]);
+      rows.push(['Picture rotation', { upright: 'Always upright', flip: 'Upright or upside down', any: 'Any angle' }[s.roll]]);
+      rows.push(['Angled views', s.oblique ? 'Yes' : 'No']);
+    }
+    rows.push(['Trials', String(s.trials)], ['Time per trial', `${s.limit} s`],
+      ['Right or wrong shown during the test', s.feedback ? 'Yes' : 'No'],
+      ['Pitch keys', s.invertPitch ? 'W raises the nose (inverted)' : 'W lowers the nose, like a stick']);
+    return rows;
+  },
+
+  trialColumns: s => [
+    { title: 'Side', w: 22, value: t => VIEWS.find(v => v.id === t.view)?.name ?? t.view },
+    { title: 'Picture', w: 22, value: t => t.roll === 0 ? 'Upright' : t.roll === 180 ? 'Upside down' : `${t.roll}°` },
+    ...(s.mode === 'corner'
+      ? [{ title: 'Start', w: 20, value: t => ({ tl: 'Top left', tr: 'Top right', bl: 'Bottom left', br: 'Bottom right' })[t.corner] ?? '' }]
+      : []),
+    { title: 'Correct answer', w: 38, value: t => answerName(t.expected) },
+    { title: 'Answered', w: 38, value: t => t.response === null ? '' : answerName(t.response) },
+  ],
+
   csv: {
     columns: ['side', 'picture_rotation_deg', 'corner', 'answer', 'response'],
     row: t => [t.view, t.roll, t.corner, t.expected, t.response ?? 'timeout'],
