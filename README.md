@@ -11,7 +11,7 @@ It starts in any of the four corners, flies along a dashed line to the opposite 
 Before then, the candidate presses the two keys that would fly it along that line, as the pilot sitting inside would.
 For example W + A for nose down and left.
 
-**[Try it online](https://duartesantos8.github.io/pilot-test/)**
+**[Try it online](https://duartesantos8.github.io/attitude/)**
 
 ![From the dashboard into a test run, then the session results](docs/demo.gif)
 
@@ -145,8 +145,8 @@ Every finished run is saved and gets its own page:
 It's a static site with no build step. Any static file server works:
 
 ```sh
-git clone https://github.com/DuarteSantos8/pilot-test.git
-cd pilot-test
+git clone https://github.com/DuarteSantos8/attitude.git
+cd attitude
 python3 -m http.server 8765
 # open http://localhost:8765
 ```
