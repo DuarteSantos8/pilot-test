@@ -3,16 +3,17 @@
   Attitude
 </h1>
 
-A spatial orientation test for pilot candidates. It runs in the browser.
+Aptitude tests for pilot candidates. It runs in the browser.
+A dashboard keeps every session, so you can see how you're doing over time. Spatial orientation is the first test, and more are planned.
 
-An aircraft appears in a corner of the screen, seen from the front or the back and sometimes upside down.
+In the spatial orientation test, an aircraft appears in a corner of the screen, seen from the front or the back and sometimes upside down.
 It starts in any of the four corners, flies along a dashed line to the opposite corner, and reaches the arrow tip when the time is up (5 seconds by default).
 Before then, the candidate presses the two keys that would fly it along that line, as the pilot sitting inside would.
 For example W + A for nose down and left.
 
 **[Try it online](https://duartesantos8.github.io/pilot-test/)**
 
-![A candidate running through a ten-trial corner test](docs/demo.gif)
+![From the dashboard into a test run, then the session results](docs/demo.gif)
 
 ## Why
 
@@ -20,7 +21,22 @@ Aircrew selection tests check whether someone can tell how an aircraft is orient
 and can work out which control input it needs. This project does that one task with a keyboard instead of a joystick.
 Every answer is timed and recorded.
 
-## Two test types
+## Dashboard
+
+![Dashboard with the test list, progress charts, past sessions and data tools](docs/dashboard.png)
+
+- **Tests**: every available test, with your number of sessions, last and best score. Start a test from here.
+- **Progress**: correct answers and median reaction time for each session, oldest to newest. Hover a point for details.
+- **Sessions**: every finished run. Click one to open its full results again.
+- **Your name**: saved once and attached to every session.
+- **Your data**: results are stored in this browser only.
+  - **Export backup** saves everything as a JSON file, and **Import backup** loads it back on another device or browser (sessions that are already there are skipped).
+  - **All trials (CSV)** gives one row per trial over all sessions, ready for a spreadsheet.
+  - **Delete all results** clears everything.
+
+## Spatial orientation
+
+There are two test types.
 
 ### Corner, two keys (default)
 
@@ -75,11 +91,10 @@ Pitch can be inverted in the settings for people who think "W = up".
 
 Each level only shows trials where the arrow is clearly visible. "Nose up" is never shown from straight above, because the arrow would point straight at the screen.
 
-## Settings
+## Spatial orientation settings
 
 ![Setup screen with the 3D aircraft, the six reference views and the settings](docs/setup.png)
 
-- **Candidate**: a name or service number, saved with the results.
 - **Trials**: 5 to 60.
 - **Time per trial**: 1 to 10 seconds, 5 by default. In the corner test this is also how long the aircraft takes to reach the arrow tip.
   If no answer comes in time, the trial counts as too slow.
@@ -89,15 +104,16 @@ Each level only shows trials where the arrow is clearly visible. "Nose up" is ne
 
 Settings are remembered in the browser.
 
-## Results
+## Session results
 
-![Results: accuracy, median reaction time, per-trial chart and breakdowns](docs/results.png)
+![Session results: accuracy, median reaction time, per-trial chart and breakdowns](docs/results.png)
+
+Every finished run is saved and gets its own page:
 
 - Accuracy, median reaction time (correct answers only) and the number of slow answers.
-- One bar per trial: height is reaction time, colour is right, wrong or too slow.
+- One bar per trial: height is reaction time, colour is right, wrong or too slow. Hover a bar to see that trial.
 - Breakdown by side shown (and upright or upside down in the corner test) and by direction, which shows where a candidate struggles.
-- **Download CSV** gives one row per trial (`candidate, test, trial, side, picture_rotation_deg, corner, answer, response, correct, reaction_ms`), ready for a spreadsheet.
-- The last sessions are listed under *Previous sessions*. This list is stored in the browser only, never sent anywhere.
+- **Run again** starts the same test with the same settings. **Download CSV** gives this session's trials. **Delete session** removes it.
 
 ## Run it locally
 
@@ -116,18 +132,35 @@ Three.js and the fonts load from a CDN, so the first load needs an internet conn
 ## How it works
 
 ```
-index.html        page structure: setup, test and results screens
-src/aircraft.js   the jet, built from three.js primitives, and the curved arrow
-src/trials.js     sides, directions, presets, trial generation, scoring
-src/app.js        rendering, settings form, test flow, results, CSV
-src/style.css     all styling
+index.html                     all screens: dashboard, each test's setup and run screens, session results
+src/style.css                  all styling
+src/platform/app.js            routing, dashboard, session pages, backup / import / CSV
+src/platform/store.js          sessions and profile in localStorage
+src/platform/charts.js         progress and per-trial charts with hover tooltips
+src/tests/registry.js          the list of tests and the contract each test follows
+src/tests/orientation/         the spatial orientation test
+  index.js                     settings form, running a test, what it reports to the dashboard
+  trials.js                    sides, directions, presets, trial generation, scoring
+  aircraft.js                  the jet, built from three.js primitives, and the curved arrow
 ```
+
+Pages are addressed in the URL hash: `#/` is the dashboard, `#/tests/orientation` a test, `#/sessions/<id>` one session.
 
 - The aircraft has its own axes: nose `+Z`, top `+Y`, pilot's left `+X`. Each answer is one of these directions: left `+X`, right `−X`, nose up `+Y`, nose down `−Y`.
 - Corner test: the line's screen direction is converted into the aircraft's axes. Its left/right part becomes A or D, and its up/down part becomes W or S.
 - A trial picks a camera direction (one of the six sides, nudged at random in Advanced) and a rotation of the picture around that direction.
 - A trial is thrown away if the arrow points within 60° of straight at the camera or straight away from it, where it would be hard to read.
 - The arrow is drawn on top of everything with a dark outline, so it stays readable against both the sky and the aircraft.
+
+## Adding a test
+
+1. Create `src/tests/<id>/index.js`. Its default export describes the test: name, description, how to open and close it,
+   how to summarise a session and which CSV columns it adds. The full list is at the top of `src/tests/registry.js`.
+2. Add the test's setup and run screens to `index.html` as elements with `data-screen` (see the orientation test's for an example).
+3. When a run is finished, call `platform.finish({ testId, settings, trials })`. Each trial needs at least `trial`, `correct`, `rt` and `response`.
+4. Import it in `src/tests/registry.js` and add it to the `tests` list.
+
+The dashboard, progress charts, session pages, backup and CSV export then work for the new test without further changes.
 
 ## Limitations
 

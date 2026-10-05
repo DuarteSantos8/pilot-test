@@ -31,13 +31,15 @@ a { color: inherit; text-underline-offset: 3px; }
 .masthead svg { width: 44px; height: 44px; flex: none; }
 .wordmark { margin: 0; font: 700 52px/0.9 var(--display); letter-spacing: -0.01em; }
 .tagline { margin: 0 0 0 6px; color: var(--ink-soft); font-size: 18px; }
-.repo { margin-left: auto; font-weight: 500; }
+.wordmark a { text-decoration: none; }
+.mast-nav { margin-left: auto; display: flex; gap: 22px; font-weight: 500; }
+.crumbs { grid-area: crumbs; margin: -10px 0 18px; color: var(--ink-soft); font-size: 15px; }
 
 /* ---------- Setup screen ---------- */
 .setup {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 1fr);
-  grid-template-areas: "mast mast" "hangar brief";
+  grid-template-areas: "mast mast" "crumbs crumbs" "hangar brief";
   gap: 0 44px;
   max-width: 1440px; margin: 0 auto; padding: 28px 40px 48px;
 }
@@ -172,13 +174,58 @@ output { font: 600 20px/1 var(--display); float: right; }
 .headline b { font: 700 88px/0.85 var(--display); }
 .headline .secondary b { font-size: 48px; }
 .headline span { color: var(--ink-soft); margin-top: 6px; }
-.chart { width: 100%; height: 170px; display: block; background: var(--paper-raised); border-radius: 4px; }
+.session-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: -4px 0 18px; color: var(--ink-soft); }
+
+/* ---------- Charts ---------- */
+.chart-title { margin: 0 0 6px; font: 600 16px/1.3 var(--text); }
+.chart { width: 100%; display: block; background: var(--paper-raised); border-radius: 4px; margin-bottom: 18px; overflow: visible; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; opacity: .6; }
+.chart .axis { fill: var(--ink-soft); font: 12px var(--text); }
 .chart .right { fill: var(--right); }
 .chart .wrong { fill: var(--wrong); }
 .chart .timeout { fill: var(--rule); }
-.chart line { stroke: var(--ink); stroke-dasharray: 4 3; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--ink-soft); margin-top: 8px; }
+.chart .median { stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.chart .line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; }
+.chart .dot { fill: var(--ink); stroke: var(--paper-raised); stroke-width: 2; }
+.chart .cursor { stroke: var(--ink-soft); stroke-width: 1; }
+.legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; color: var(--ink-soft); margin: -8px 0 6px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .key-right { background: var(--right); }
+.legend .key-wrong { background: var(--wrong); }
+.legend .key-timeout { background: var(--rule); }
+.legend .key-median { height: 0; border-top: 2px dashed var(--ink); border-radius: 0; vertical-align: 3px; }
+.tooltip {
+  position: fixed; left: 0; top: 0; z-index: 10; pointer-events: none; max-width: 260px;
+  padding: 8px 10px; border-radius: 4px; background: var(--ink); color: var(--paper);
+  font-size: 14px; line-height: 1.4; box-shadow: 0 4px 14px rgba(28, 34, 38, .25);
+}
+
+/* ---------- Dashboard ---------- */
+.dashboard { max-width: 1240px; margin: 0 auto; padding: 28px 40px 56px; }
+.dash-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr); gap: 0 48px; }
+.dashboard h2 { font: 600 28px/1.1 var(--display); margin: 0 0 12px; }
+.dashboard section + section { margin-top: 34px; }
+.section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.section-head select { width: auto; }
+
+.test-list { display: grid; gap: 16px; }
+.test-card { display: grid; grid-template-columns: 220px 1fr; gap: 20px; padding: 16px; background: var(--paper-raised); border-radius: 6px; }
+.test-card img { width: 100%; aspect-ratio: 8 / 5; object-fit: cover; border-radius: 4px; background: linear-gradient(var(--sky-high), var(--sky-low)); }
+.test-card h3 { margin: 0 0 4px; font: 600 26px/1.1 var(--display); }
+.test-card p { margin: 0 0 12px; }
+.test-card .btn { display: inline-block; text-decoration: none; margin-top: 4px; }
+.facts, .overview { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0 0 12px; }
+.facts dt, .overview dt { font-size: 14px; color: var(--ink-soft); }
+.facts dd, .overview dd { margin: 0; font: 600 26px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+
+.sessions tbody tr { cursor: pointer; }
+.sessions tbody tr:hover td { background: var(--paper-raised); }
+.sessions td small { display: block; color: var(--ink-soft); font-size: 13px; }
+.sessions td a { font-weight: 500; }
+.file-btn { position: relative; display: inline-block; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.file-btn:focus-within { outline: 3px solid var(--signal); outline-offset: 2px; }
+.btn.danger { color: var(--wrong); border-color: var(--wrong); }
 
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 28px; }
 th { text-align: left; font-weight: 600; border-bottom: 2px solid var(--ink); padding: 6px 8px 6px 0; }
@@ -188,14 +235,18 @@ td.num, th.num { text-align: right; }
 
 /* ---------- Small screens ---------- */
 @media (max-width: 900px) {
-  .setup { grid-template-columns: 1fr; grid-template-areas: "mast" "hangar" "brief"; padding: 18px 16px 40px; }
+  .setup { grid-template-columns: 1fr; grid-template-areas: "mast" "crumbs" "hangar" "brief"; padding: 18px 16px 40px; }
+  .dashboard { padding: 18px 16px 40px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .dash-grid > div + div { margin-top: 34px; }
+  .test-card { grid-template-columns: 1fr; }
   .viewer { min-height: 320px; }
   .sides { grid-template-columns: repeat(3, 1fr); }
   .briefing { margin-top: 28px; }
   .results { padding: 18px 16px 40px; }
   .results-grid { grid-template-columns: 1fr; }
   .wordmark { font-size: 42px; }
-  .repo { margin-left: 0; width: 100%; }
+  .mast-nav { margin-left: 0; width: 100%; }
   .tagline { margin-left: 0; }
   .test-keys .cap { width: 64px; height: 60px; cursor: pointer; }
 }

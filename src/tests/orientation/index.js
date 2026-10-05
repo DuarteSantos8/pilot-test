@@ -1,22 +1,24 @@
+// Spatial orientation test: read the aircraft's attitude and steer it the way it has to go.
+// Two types: "corner" (aircraft flies along a diagonal line, answer with two keys) and
+// "arrow" (aircraft from any side with an arrow off its nose, answer with one key).
+
 import * as THREE from 'three';
 import { buildAircraft, buildArrow, disposeGroup } from './aircraft.js';
 import { VIEWS, DIRECTIONS, PRESETS, MODES, keyFor, keysFor, answerName, directionFor, makeTrials, summarize } from './trials.js';
+import { load, save } from '../../platform/store.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 
-// localStorage can be unavailable (private mode, blocked storage); the app works without it.
-const store = {
-  get(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } },
-  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* not persisted */ } },
-};
-
+const SETTINGS_KEY = 'attitude.settings';
 const DEFAULTS = {
-  candidate: '', mode: 'corner', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
+  mode: 'corner', cornerFlip: true, preset: 'standard', views: PRESETS.standard.views, roll: 'any', oblique: false,
   trials: 20, limit: 5, feedback: true, sound: false, invertPitch: false,
 };
 const KEYS = { w: 'w', a: 'a', s: 's', d: 'd', arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd' };
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let platform = null;   // set in init(): { show(screenId), finish(session), profileName() }
 
 // ---------- 3D scene, shared by every canvas ----------
 const scene = new THREE.Scene();
@@ -61,6 +63,21 @@ function aim(camera, target, viewDir, up, distance) {
   camera.lookAt(target);
 }
 
+// Still pictures of the aircraft, rendered once with a throwaway renderer.
+function snapshots(width, height, shots) {
+  const r = makeRenderer(document.createElement('canvas'), { preserveDrawingBuffer: true });
+  r.setPixelRatio(1);
+  r.setSize(width, height);
+  const cam = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
+  const urls = shots.map(({ dir, up, distance }) => {
+    aim(cam, new THREE.Vector3(0, 0.3, 0.3), dir, up, distance);
+    r.render(scene, cam);
+    return r.domElement.toDataURL();
+  });
+  r.dispose();
+  return urls;
+}
+
 // ---------- Hero viewer: slowly turning aircraft, drag to orbit ----------
 const hero = makeRenderer($('#hero'));
 const heroCam = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
@@ -78,8 +95,9 @@ $('#viewer').addEventListener('pointermove', e => {
 });
 $('#viewer').addEventListener('pointerup', () => { orbit.drag = null; });
 
+let heroRunning = false;
 function heroFrame() {
-  if ($('#setup').hidden) return;
+  if ($('#orientation-setup').hidden) { heroRunning = false; return; }
   if (!orbit.drag && !reducedMotion) orbit.yaw += 0.0025;
   fit(hero, heroCam);
   const dir = new THREE.Vector3(
@@ -89,25 +107,23 @@ function heroFrame() {
   hero.render(scene, heroCam);
   requestAnimationFrame(heroFrame);
 }
+function startHero() {
+  if (heroRunning) return;
+  heroRunning = true;
+  requestAnimationFrame(heroFrame);
+}
 
-// Still pictures of each side for the briefing, rendered once.
 function renderSides() {
-  const r = makeRenderer(document.createElement('canvas'), { preserveDrawingBuffer: true });
-  r.setPixelRatio(1);
-  r.setSize(360, 240);
-  const cam = new THREE.PerspectiveCamera(36, 1.5, 0.1, 100);
-  $('#sides').innerHTML = VIEWS.map(view => {
-    const distance = { top: 15, bottom: 15, left: 13, right: 13 }[view.id] ?? 11;
-    aim(cam, new THREE.Vector3(0, 0.3, 0.3), view.dir, view.up, distance);
-    r.render(scene, cam);
-    return `<li><img src="${r.domElement.toDataURL()}" alt="Aircraft seen from the ${view.name.toLowerCase()}"><span>${view.name}</span></li>`;
-  }).join('');
-  r.dispose();
+  const urls = snapshots(360, 240, VIEWS.map(view => ({
+    dir: view.dir, up: view.up, distance: { top: 15, bottom: 15, left: 13, right: 13 }[view.id] ?? 11,
+  })));
+  $('#sides').innerHTML = VIEWS.map((view, i) =>
+    `<li><img src="${urls[i]}" alt="Aircraft seen from the ${view.name.toLowerCase()}"><span>${view.name}</span></li>`).join('');
 }
 
 // ---------- Settings form ----------
 const form = $('#settings');
-let settings = { ...DEFAULTS, ...store.get('attitude.settings', {}) };
+let settings = { ...DEFAULTS, ...load(SETTINGS_KEY, {}) };
 
 $('#viewChips').innerHTML = VIEWS.map(v =>
   `<label><input type="checkbox" name="views" value="${v.id}"><span>${v.name}</span></label>`).join('');
@@ -121,7 +137,6 @@ function keypadHTML(invert) {
 }
 
 function writeForm() {
-  form.candidate.value = settings.candidate;
   form.cornerFlip.checked = settings.cornerFlip;
   form.roll.value = settings.roll;
   form.oblique.checked = settings.oblique;
@@ -137,7 +152,6 @@ function writeForm() {
 function readForm() {
   settings = {
     ...settings,
-    candidate: form.candidate.value.trim(),
     cornerFlip: form.cornerFlip.checked,
     views: $$('#viewChips input:checked').map(i => i.value),
     roll: form.roll.value,
@@ -148,7 +162,7 @@ function readForm() {
     sound: form.sound.checked,
     invertPitch: form.invertPitch.checked,
   };
-  store.set('attitude.settings', settings);
+  save(SETTINGS_KEY, settings);
 }
 
 function refreshForm() {
@@ -176,7 +190,7 @@ $('#modes').addEventListener('click', e => {
   const mode = e.target.dataset?.mode;
   if (!mode) return;
   settings.mode = mode;
-  store.set('attitude.settings', settings);
+  save(SETTINGS_KEY, settings);
   refreshForm();
 });
 $('#presets').addEventListener('click', e => {
@@ -190,13 +204,13 @@ form.addEventListener('input', e => {
   refreshForm();
   $('#formError').hidden = true;
 });
-form.addEventListener('submit', e => { e.preventDefault(); startSession(false); });
-$('#practice').addEventListener('click', () => startSession(true));
+form.addEventListener('submit', e => { e.preventDefault(); readForm(); startSession(settings, false); });
+$('#practice').addEventListener('click', () => { readForm(); startSession(settings, true); });
 
 // ---------- Sound ----------
 let audio = null;
 function beep(freq, ms) {
-  if (!settings.sound) return;
+  if (!session?.settings.sound) return;
   audio ??= new AudioContext();
   const osc = audio.createOscillator(), gain = audio.createGain();
   osc.frequency.value = freq;
@@ -207,7 +221,7 @@ function beep(freq, ms) {
   osc.stop(audio.currentTime + ms / 1000);
 }
 
-// ---------- Test session ----------
+// ---------- Running a test ----------
 const sky = makeRenderer($('#sky'));
 const skyCam = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
 let session = null;   // { practice, settings, trials, results, index }
@@ -277,31 +291,26 @@ function drawGuide(from, to) {
     `<polygon points="${head}" fill="#ffc21a" stroke="#2a2100" stroke-width="2.5" stroke-linejoin="round"/>`;
 }
 
-function show(id) {
-  for (const s of ['setup', 'test', 'results']) $('#' + s).hidden = s !== id;
-  if (id === 'setup') { setArrow(null); drawGuide(null); requestAnimationFrame(heroFrame); }
-}
-
-function startSession(practice) {
-  readForm();
-  if (settings.mode === 'arrow' && !settings.views.length) {
+function startSession(runSettings, practice) {
+  if (runSettings.mode === 'arrow' && !runSettings.views.length) {
     $('#formError').textContent = 'Pick at least one side to show.';
     $('#formError').hidden = false;
     return;
   }
-  const s = { ...settings, feedback: practice || settings.feedback };
+  const s = { ...runSettings, feedback: practice || runSettings.feedback };
   const count = practice ? 5 : s.trials;
   session = { practice, settings: s, trials: makeTrials(s, count), results: [], index: -1 };
-  $('#testTitle').textContent = practice ? 'Practice' : (s.candidate || 'Test');
+  $('#testTitle').textContent = practice ? 'Practice' : (platform.profileName() || 'Spatial orientation');
   $('#keyHint').hidden = s.mode !== 'corner';
+  $$('#orientation-run [data-keypad]').forEach(k => { k.innerHTML = keypadHTML(s.invertPitch); });
   $('#progress').innerHTML = '<li></li>'.repeat(count);
   $('#practiceNote').hidden = true;
-  show('test');
+  platform.show('orientation-run');
   nextTrial();
 }
 
 function nextTrial() {
-  if (!session) return;   // stopped with Esc while feedback was showing
+  if (!session) return;   // stopped while feedback was showing
   const { trials, settings: s } = session;
   session.index++;
   if (session.index >= trials.length) return finish();
@@ -318,12 +327,12 @@ function nextTrial() {
   setTimeout(() => {
     if (!session) return;
     $('#crosshair').hidden = true;
-    renderTrial(trials[session.index], s.mode);
+    const trial = trials[session.index];
+    renderTrial(trial, s.mode);
     $('#sky').style.visibility = 'visible';
 
     pending = { start: performance.now() };
     pending.timeout = setTimeout(() => answer(null), s.limit * 1000);
-    const trial = trials[session.index];
     const tick = () => {
       if (!pending) return;
       const done = Math.min(1, (performance.now() - pending.start) / (s.limit * 1000));
@@ -374,7 +383,19 @@ function answer(response) {
 function stopSession() {
   if (pending) { clearTimeout(pending.timeout); cancelAnimationFrame(pending.raf); pending = null; }
   session = null;
-  show('setup');
+}
+
+function finish() {
+  const { practice, results, settings: s } = session;
+  session = null;
+  if (practice) {
+    const sum = summarize(results, s.mode);
+    openSetup();
+    $('#practiceNote').textContent = `Practice done: ${sum.correct} of ${sum.total} right. Start the test when ready.`;
+    $('#practiceNote').hidden = false;
+    return;
+  }
+  platform.finish({ testId: 'orientation', settings: s, trials: results });
 }
 
 // Answer keys currently held (keyboard) or tapped (touch). The arrow test answers on the first key;
@@ -401,9 +422,10 @@ function release(key) {
   if (pending && session.settings.mode === 'corner' && held.size === 1 && held.has(dir)) answer(dir);
 }
 
+const running = () => !$('#orientation-run').hidden;
 addEventListener('keydown', e => {
-  if ($('#test').hidden) return;
-  if (e.key === 'Escape') return stopSession();
+  if (!running()) return;
+  if (e.key === 'Escape') { stopSession(); openSetup(); return; }
   const key = KEYS[e.key.toLowerCase()];
   if (!key) return;
   e.preventDefault();
@@ -411,7 +433,7 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => {
   const key = KEYS[e.key.toLowerCase()];
-  if (key && !$('#test').hidden) release(key);
+  if (key && running()) release(key);
 });
 // Touch screens: the keycaps on the test screen can be tapped (two taps for the corner test).
 $('.test-keys').addEventListener('pointerdown', e => {
@@ -424,88 +446,12 @@ addEventListener('resize', () => {
   renderTrial(session.trials[session.index], session.settings.mode, done);
 });
 
-// ---------- Results ----------
-const fmtMs = ms => ms == null ? '–' : `${(ms / 1000).toFixed(2)} s`;
-
-function finish() {
-  const { practice, results, settings: s } = session;
-  const sum = summarize(results, s.mode);
-  if (practice) {
-    session = null;
-    show('setup');
-    $('#practiceNote').textContent = `Practice done: ${sum.correct} of ${sum.total} right. Start the test when ready.`;
-    $('#practiceNote').hidden = false;
-    return;
-  }
-
-  const history = store.get('attitude.history', []);
-  history.unshift({ date: new Date().toISOString(), candidate: s.candidate || 'Unnamed', mode: s.mode, preset: s.preset,
-    correct: sum.correct, total: sum.total, medianRt: sum.medianRt });
-  store.set('attitude.history', history.slice(0, 50));
-
-  $('#resultsTitle').textContent = `${s.candidate || 'Unnamed candidate'}, ${s.mode === 'corner' ? 'corner test' : `${s.preset} difficulty`}`;
-  $('#accuracy').textContent = `${Math.round(sum.accuracy * 100)}%`;
-  $('#medianRt').textContent = fmtMs(sum.medianRt);
-  $('#timeouts').textContent = sum.timeouts;
-  drawChart(results, s.limit * 1000, sum.medianRt);
-
-  const rows = groups => groups.map(g =>
-    `<tr><td>${g.name}</td><td class="num">${g.correct} / ${g.n}</td><td class="num">${fmtMs(g.medianRt)}</td></tr>`).join('');
-  $('#byView').innerHTML = rows(sum.byView);
-  $('#byDirection').innerHTML = rows(sum.byDirection);
-  renderHistory();
-  show('results');
+function openSetup() {
+  setArrow(null);
+  drawGuide(null);
+  platform.show('orientation-setup');
+  startHero();
 }
-
-// One bar per trial, height = reaction time relative to the time limit.
-function drawChart(results, limitMs, medianRt) {
-  const w = results.length * 10, h = 100;
-  const bars = results.map((r, i) => {
-    const cls = r.response === null ? 'timeout' : r.correct ? 'right' : 'wrong';
-    const bh = Math.max(2, (Math.min(r.rt, limitMs) / limitMs) * h);
-    return `<rect class="${cls}" x="${i * 10 + 1.5}" y="${h - bh}" width="7" height="${bh}"><title>Trial ${r.trial}: ${r.rt} ms</title></rect>`;
-  }).join('');
-  const med = medianRt == null ? '' : `<line x1="0" x2="${w}" y1="${h - (medianRt / limitMs) * h}" y2="${h - (medianRt / limitMs) * h}"/>`;
-  $('#chart').setAttribute('viewBox', `0 0 ${w} ${h}`);
-  $('#chart').innerHTML = bars + med;
-  $('#chartScale').textContent = `Bar height up to ${limitMs / 1000} s, dashed line is the median`;
-}
-
-function renderHistory() {
-  const history = store.get('attitude.history', []);
-  $('#history').innerHTML = history.length
-    ? history.slice(0, 10).map(h => `<tr><td>${new Date(h.date).toLocaleDateString()}</td><td>${escapeHTML(h.candidate)}</td>
-        <td class="num">${h.correct} / ${h.total}</td><td class="num">${fmtMs(h.medianRt)}</td></tr>`).join('')
-    : '<tr><td colspan="4" class="empty">Finished tests show up here.</td></tr>';
-}
-
-const escapeHTML = s => s.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
-
-function downloadCsv() {
-  const s = session.settings;
-  const head = 'candidate,test,trial,side,picture_rotation_deg,corner,answer,response,correct,reaction_ms';
-  const test = s.mode === 'corner' ? 'corner' : s.preset;
-  const lines = session.results.map(r =>
-    [JSON.stringify(s.candidate), test, r.trial, r.view, r.roll, r.corner, r.expected, r.response ?? 'timeout', r.correct, r.rt].join(','));
-  const url = URL.createObjectURL(new Blob([[head, ...lines].join('\n')], { type: 'text/csv' }));
-  const a = Object.assign(document.createElement('a'), {
-    href: url, download: `attitude_${(s.candidate || 'candidate').replace(/\W+/g, '_')}_${new Date().toISOString().slice(0, 10)}.csv`,
-  });
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-$('#again').addEventListener('click', () => startSession(false));
-$('#toSetup').addEventListener('click', () => { session = null; show('setup'); });
-$('#csv').addEventListener('click', downloadCsv);
-$('#clearHistory').addEventListener('click', () => { store.set('attitude.history', []); renderHistory(); });
-
-// ---------- Boot ----------
-const masthead = $('#masthead').content;
-$$('[data-masthead]').forEach(slot => slot.replaceWith(masthead.cloneNode(true)));
-writeForm();
-renderSides();
-show('setup');
 
 // Lets scripts (used to record the README demo) read the current trial: open with ?demo.
 if (new URLSearchParams(location.search).has('demo')) {
@@ -516,3 +462,54 @@ if (new URLSearchParams(location.search).has('demo')) {
     get answerKeys() { return session && keysFor(session.trials[session.index].dir, session.settings.invertPitch); },
   };
 }
+
+// ---------- What the platform sees ----------
+export default {
+  id: 'orientation',
+  name: 'Spatial orientation',
+  description: 'Read the aircraft\'s attitude from outside, often upside down, and steer it the way it has to go.',
+
+  init(p) {
+    platform = p;
+    writeForm();
+    renderSides();
+  },
+
+  open({ settings: runWith } = {}) {
+    $('#practiceNote').hidden = true;
+    if (runWith) startSession({ ...DEFAULTS, ...runWith }, false);
+    else openSetup();
+  },
+
+  close() {
+    stopSession();
+    setArrow(null);
+    drawGuide(null);
+  },
+
+  thumbnail() {
+    const dir = new THREE.Vector3(0.62, 0.42, 0.66).normalize();
+    return snapshots(480, 300, [{ dir, up: new THREE.Vector3(0, 1, 0), distance: 11.5 }])[0];
+  },
+
+  variant: s => s.mode === 'corner' ? 'Corner, two keys' : `Arrow, ${s.preset}`,
+
+  summarize(trials, s) {
+    const sum = summarize(trials, s.mode);
+    return {
+      ...sum,
+      limitMs: s.limit * 1000,
+      breakdowns: [{ title: 'Side shown', rows: sum.byView }, { title: 'Direction', rows: sum.byDirection }],
+    };
+  },
+
+  describeTrial(t) {
+    const verdict = t.response === null ? 'too slow' : t.correct ? 'right' : `wrong (${answerName(t.response).toLowerCase()})`;
+    return `<b>Trial ${t.trial}</b><br>${answerName(t.expected)}<br>${(t.rt / 1000).toFixed(2)} s, ${verdict}`;
+  },
+
+  csv: {
+    columns: ['side', 'picture_rotation_deg', 'corner', 'answer', 'response'],
+    row: t => [t.view, t.roll, t.corner, t.expected, t.response ?? 'timeout'],
+  },
+};
